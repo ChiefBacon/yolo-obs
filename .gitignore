@@ -1,0 +1,5 @@
+*.pt
+
+.idea
+
+yolo-obs-cfg.ini
