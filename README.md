@@ -26,7 +26,7 @@ If you have any issues, just add an issue on the GitHub page.
 
 ## Future Plans
 Planned features for the future
-- [ ] Configurable Object Detections
+- [x] Configurable Object Detections
 - [ ] Configuration Generator
 - [ ] Docker image for server
 - [ ] Face blurring

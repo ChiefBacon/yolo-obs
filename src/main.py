@@ -131,6 +131,7 @@ privacy_screen = False
 prev_privacy_screen = False
 scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
+detection_objects = config.get("config.ai", "DetectionObjects").split(",")
 
 # Colors for drawing boxes
 blue = (255, 0, 0)
@@ -221,7 +222,7 @@ while True:
                 cls = int(box.cls[0])
                 class_name = classes_names[cls]
 
-                if class_name in ["dog", "cat", "sheep", "horse", "cow"]:
+                if class_name in detection_objects:
                     color = blue
                     target_present = True
                     target_in_frame = True
