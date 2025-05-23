@@ -5,6 +5,7 @@ description = "A simple Python program that allows the integration of YOLO objec
 authors = [
     {name = "ChiefBacon",email = "tandcclarkkids@gmail.com"}
 ]
+
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,11 +17,3 @@ dependencies = [
     "ultralytics (>=8.3.127,<9.0.0)",
     "requests (>=2.32.3,<3.0.0)"
 ]
-
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
-package-mode = false

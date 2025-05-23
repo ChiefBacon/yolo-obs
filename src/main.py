@@ -131,7 +131,6 @@ privacy_screen = False
 prev_privacy_screen = False
 scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
-processing_device = None
 
 # Colors for drawing boxes
 blue = (255, 0, 0)
@@ -143,25 +142,14 @@ print(f'{Fore.CYAN}Loading YOLO... {Fore.RESET}', end="")
 yolo = YOLO(config.get("config.ai", "YoloModel"), verbose=False)
 print(f'{Fore.GREEN}Done!{Fore.RESET}')
 
-if torch.backends.mps.is_available() and config.getboolean("config.ai", "AttemptMPS"):
-    print("MPS available, switching to GPU.")
-    processing_device = 'mps'
-
-elif torch.backends.cudnn.is_available() and config.getboolean("config.ai", "AttemptCUDNN"):
-    print("CUDNN available, switching to GPU.")
-    processing_device = 0
-
-else:
-    processing_device = 'cpu'
-
-print("Initializing Webcam...")
+print("Initializing Camera... ", end="")
 # Initialize webcam
 cap = cv2.VideoCapture(int(config.get("config.ai", "CameraNumber")))
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
 
-print("Webcam Initialized!")
+print("Camera Initialized!")
 
 print("Starting Up")
 while True:
@@ -215,7 +203,7 @@ while True:
         continue
 
     # Detecting objects using YOLOv5
-    results = yolo.track(frame, stream=False, verbose=False, device=processing_device)
+    results = yolo.track(frame, stream=False, verbose=False)
 
     height, width, _ = frame.shape
     target_in_frame = False
