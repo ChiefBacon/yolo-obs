@@ -1,5 +1,6 @@
-from colorama import Fore, Back
+from colorama import Fore
 from datetime import datetime
+
 
 class SimpleLogger():
     def __init__(self, log_file: str, compatibility: bool = False):
@@ -10,7 +11,7 @@ class SimpleLogger():
         with open(self.log_file, 'a') as f:
             f.write(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [{'ℹ️' if not self.compatibility else "i"}] - {message}\n")
         print(f'{Fore.CYAN}[{'ℹ️' if not self.compatibility else "i"}] - {message}{Fore.RESET}')
-    
+
     def logWarning(self, message: str):
         with open(self.log_file, 'a') as f:
             f.write(f"[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [{'⚠️' if not self.compatibility else "!"}] - {message}\n")

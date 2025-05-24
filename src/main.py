@@ -1,15 +1,11 @@
-import cv2
-import numpy as np
+import sys
 import datetime
 import time
+import configparser
 from obswebsocket import obsws, requests
 from requests import post
 from ultralytics import YOLO
-import paho.mqtt.client as mqtt
-import json
-import torch
-from colorama import Fore, Back
-import configparser
+import cv2
 import simpleLogger
 
 config = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
@@ -23,7 +19,7 @@ try:
     config.get("config.obs", "Host")
 except configparser.NoSectionError:
     logger.logError("Configuration file not found. Please create a yolo-obs-cfg.ini file.")
-    exit(1)
+    sys.exit(1)
 
 host = config.get("config.obs", "Host")
 port = int(config.get("config.obs", "Port"))
@@ -44,7 +40,7 @@ try:
     ws.connect()
 except Exception as e:
     logger.logError(f"Failed to connect to OBS WebSocket: {e}")
-    exit(1)
+    sys.exit(1)
 logger.logSuccess("Connected!")
 
 # Initialize state variables
@@ -103,7 +99,7 @@ while True:
             print("CAM ON")
             target_detections += 1
             if ntfy_enabled:
-                post(notification_url+notification_topic, data="Object has been detected!", headers={"Title": notification_title, "Priority": "high"})
+                post(notification_url + notification_topic, data="Object has been detected!", headers={"Title": notification_title, "Priority": "high"})
             ws.call(requests.SetCurrentProgramScene(sceneName="Cam 2"))
         else:
             print("CAM OFF")
@@ -120,7 +116,7 @@ while True:
     ret, frame = cap.read()
     if not ret:
         logger.logError("Failed to read frame from camera.")
-        exit(1)
+        break
 
     # Detecting objects using YOLOv5
     results = yolo.track(frame, stream=False, verbose=False)
@@ -146,13 +142,15 @@ while True:
                     target_present = True
                     target_in_frame = True
                     time_target_last_seen = datetime.datetime.now()
-                    if config.getboolean("config.ai", "UseSmartScale"): ws.call(requests.SetSceneItemTransform(sceneName="Cam 2", sceneItemId=14, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
+                    if config.getboolean("config.ai", "UseSmartScale"):
+                        ws.call(requests.SetSceneItemTransform(sceneName="Cam 2", sceneItemId=14, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
                 elif class_name == "scissors":
                     color = red
                     time_scissors_last_seen = datetime.datetime.now()
                     privacy_screen = True
                     scissors_in_frame = True
-                else: color = green
+                else:
+                    color = green
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(frame, class_name, (x1 + 5, y2 - 10), cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
@@ -168,9 +166,9 @@ while True:
 
     end = time.time()
     frametime = end - start
-    fps = 1/frametime
+    fps = 1 / frametime
 
-    cv2.putText(frame, "{:.2f} FPS".format(fps), (5, 30), cv2.FONT_HERSHEY_PLAIN, 2, blue, 2)
+    cv2.putText(frame, f"{fps:.2f} FPS", (5, 30), cv2.FONT_HERSHEY_PLAIN, 2, blue, 2)
     cv2.imshow("YOLO OBS", frame)
     key = cv2.waitKey(1)
     if key == 27:  # Press 'ESC' to exit
