@@ -3,3 +3,7 @@
 .idea
 
 yolo-obs-cfg.ini
+*.log
+
+__pycache__
+*.pyc

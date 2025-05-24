@@ -10,15 +10,21 @@ import json
 import torch
 from colorama import Fore, Back
 import configparser
+import simpleLogger
 
 config = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
 config.read('yolo-obs-cfg.ini')
+logger = simpleLogger.SimpleLogger("yolo-obs.log")
 
-print(config.sections())
-
-print(Fore.CYAN+"Preparing... ", end=Fore.RESET)
+logger.logInfo("Preparing...")
 
 # Configuration
+try:
+    config.get("config.obs", "Host")
+except configparser.NoSectionError:
+    logger.logError("Configuration file not found. Please create a yolo-obs-cfg.ini file.")
+    exit(1)
+
 host = config.get("config.obs", "Host")
 port = int(config.get("config.obs", "Port"))
 password = config.get("config.obs", "Password")
@@ -32,10 +38,14 @@ else:
     ntfy_enabled = False
 
 # Connect to websockets
-print(f'{Fore.CYAN}Connecting to OBS... {Fore.RESET}', end="")
-ws = obsws(host, port, password)
-ws.connect()
-print(f'{Fore.GREEN}Done!{Fore.RESET}')
+logger.logInfo("Connecting to OBS WebSocket... ")
+try:
+    ws = obsws(host, port, password)
+    ws.connect()
+except Exception as e:
+    logger.logError(f"Failed to connect to OBS WebSocket: {e}")
+    exit(1)
+logger.logSuccess("Connected!")
 
 # Initialize state variables
 target_detections = 0
@@ -50,29 +60,29 @@ prev_privacy_screen = False
 scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
 detection_objects = config.get("config.ai", "DetectionObjects").split(",")
-scene_height = int(config.get("config.ai", "SceneHeight"))
-scene_width = int(config.get("config.ai", "SceneWidth"))
+scene_height = int(config.get("config.obs", "SceneHeight"))
+scene_width = int(config.get("config.obs", "SceneWidth"))
 
 # Colors for drawing boxes
 blue = (255, 0, 0)
 green = (0, 255, 0)
 red = (0, 0, 255)
 
-# Load YOLOv5 model
-print(f'{Fore.CYAN}Loading YOLO... {Fore.RESET}', end="")
+# Load YOLO model
+logger.logInfo("Loading YOLO model... ")
 yolo = YOLO(config.get("config.ai", "YoloModel"), verbose=False)
-print(f'{Fore.GREEN}Done!{Fore.RESET}')
+logger.logSuccess("YOLO model loaded!")
 
-print("Initializing Camera... ", end="")
 # Initialize webcam
+logger.logInfo("Initializing webcam... ")
 cap = cv2.VideoCapture(int(config.get("config.ai", "CameraNumber")))
-
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+logger.logSuccess("Webcam initialized!")
 
-print("Camera Initialized!")
+logger.logInfo("Starting detection loop... ")
 
-print("Starting Up")
+# Main loop
 while True:
     start = time.time()
     target_in_frame = False
@@ -109,8 +119,8 @@ while True:
 
     ret, frame = cap.read()
     if not ret:
-        print("Failed to grab frame")
-        continue
+        logger.logError("Failed to read frame from camera.")
+        exit(1)
 
     # Detecting objects using YOLOv5
     results = yolo.track(frame, stream=False, verbose=False)
