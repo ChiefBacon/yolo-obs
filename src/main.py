@@ -56,8 +56,11 @@ prev_privacy_screen = False
 scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
 detection_objects = config.get("config.ai", "DetectionObjects").split(",")
-scene_height = int(config.get("config.obs", "SceneHeight"))
-scene_width = int(config.get("config.obs", "SceneWidth"))
+canvas_info = ws.call(requests.GetVideoSettings())
+scene_height = int(canvas_info["baseHeight"])
+scene_width = int(canvas_info["baseWidth"])
+present_scene = config.get("config.obs", "PresentScene")
+away_scene = config.get("config.obs", "AwayScene")
 
 # Colors for drawing boxes
 blue = (255, 0, 0)
@@ -72,8 +75,8 @@ logger.logSuccess("YOLO model loaded!")
 # Initialize webcam
 logger.logInfo("Initializing webcam... ")
 cap = cv2.VideoCapture(int(config.get("config.ai", "CameraNumber")))
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(config.get("config.ai", "CameraWidth")))
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(config.get("config.ai", "CameraHeight")))
 logger.logSuccess("Webcam initialized!")
 
 logger.logInfo("Starting detection loop... ")
@@ -91,7 +94,7 @@ while True:
             ws.call(requests.SetCurrentProgramScene(sceneName="Paused"))
         else:
             print("NORMAL OPERATION")
-            ws.call(requests.SetCurrentProgramScene(sceneName="Away"))
+            ws.call(requests.SetCurrentProgramScene(sceneName=away_scene))
 
     if prev_cam_status != cam_status and not privacy_screen:
         prev_cam_status = cam_status
@@ -100,11 +103,11 @@ while True:
             target_detections += 1
             if ntfy_enabled:
                 post(notification_url + notification_topic, data="Object has been detected!", headers={"Title": notification_title, "Priority": "high"})
-            ws.call(requests.SetCurrentProgramScene(sceneName="Cam 2"))
+            ws.call(requests.SetCurrentProgramScene(sceneName=present_scene))
         else:
             print("CAM OFF")
-            ws.call(requests.SetCurrentProgramScene(sceneName="Away"))
-            ws.call(requests.SetSceneItemTransform(sceneName="Cam 2", sceneItemId=14, sceneItemTransform={"cropLeft": 0.0, "cropRight": 0.0, "cropTop": 0.0, "cropBottom": 0.0, "scaleX": 1.0, "scaleY": 1.0, "positionX": 0.0, "positionY": 0.0}))
+            ws.call(requests.SetCurrentProgramScene(sceneName=away_scene))
+            ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=14, sceneItemTransform={"cropLeft": 0.0, "cropRight": 0.0, "cropTop": 0.0, "cropBottom": 0.0, "scaleX": 1.0, "scaleY": 1.0, "positionX": 0.0, "positionY": 0.0}))
 
     if prev_target_present != target_present:
         prev_target_present = target_present
@@ -143,7 +146,7 @@ while True:
                     target_in_frame = True
                     time_target_last_seen = datetime.datetime.now()
                     if config.getboolean("config.ai", "UseSmartScale"):
-                        ws.call(requests.SetSceneItemTransform(sceneName="Cam 2", sceneItemId=14, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
+                        ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=14, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
                 elif class_name == "scissors":
                     color = red
                     time_scissors_last_seen = datetime.datetime.now()
