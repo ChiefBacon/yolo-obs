@@ -1,4 +1,4 @@
-# YOLO OBS
+# OBS Object Detection
 A simple Python program that can add YOLO object detection to OBS using OBS websockets.
 
 ## Setup
@@ -19,7 +19,7 @@ Currently, there is no simple way to find the number for the camera that you wan
 Start with zero and work your way up until you find the correct camera.
 
 ### Config
-You can write a configuration file based on the example config file, then rename it to `yolo-obs-cfg.ini`.
+You can write a configuration file based on the example config file, then rename it to `obs-object-detection-cfg.ini`.
 
 ## Support
 If you have any issues, just add an issue on the GitHub page.

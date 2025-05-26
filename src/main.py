@@ -9,10 +9,10 @@ import cv2
 import simpleLogger
 
 config = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
-config.read('yolo-obs-cfg.ini')
-logger = simpleLogger.SimpleLogger("yolo-obs.log")
+config.read('obs-object-detection-cfg.ini')
+logger = simpleLogger.SimpleLogger("obs-object-detection.log")
 
-logger.logInfo("Preparing...")
+logger.logInfo("Preparing OBS Object Detection")
 
 # Configuration
 try:
@@ -34,14 +34,14 @@ else:
     ntfy_enabled = False
 
 # Connect to websockets
-logger.logInfo("Connecting to OBS WebSocket... ")
+logger.logInfo("Connecting to OBS WebSocket")
 try:
     ws = obsws(host, port, password)
     ws.connect()
 except Exception as e:
     logger.logError(f"Failed to connect to OBS WebSocket: {e}")
     sys.exit(1)
-logger.logSuccess("Connected!")
+logger.logSuccess("Connected to OBS WebSocket")
 
 # Initialize state variables
 target_detections = 0
@@ -68,18 +68,18 @@ green = (0, 255, 0)
 red = (0, 0, 255)
 
 # Load YOLO model
-logger.logInfo("Loading YOLO model... ")
+logger.logInfo("Loading YOLO model")
 yolo = YOLO(config.get("config.ai", "YoloModel"), verbose=False)
-logger.logSuccess("YOLO model loaded!")
+logger.logSuccess("YOLO model loaded")
 
 # Initialize webcam
-logger.logInfo("Initializing webcam... ")
+logger.logInfo("Initializing camera")
 cap = cv2.VideoCapture(int(config.get("config.ai", "CameraNumber")))
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(config.get("config.ai", "CameraWidth")))
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(config.get("config.ai", "CameraHeight")))
-logger.logSuccess("Webcam initialized!")
+logger.logSuccess("Camera initialized")
 
-logger.logInfo("Starting detection loop... ")
+logger.logInfo("Starting main process")
 
 # Main loop
 while True:
@@ -172,7 +172,7 @@ while True:
     fps = 1 / frametime
 
     cv2.putText(frame, f"{fps:.2f} FPS", (5, 30), cv2.FONT_HERSHEY_PLAIN, 2, blue, 2)
-    cv2.imshow("YOLO OBS", frame)
+    cv2.imshow("OBS Object Detection", frame)
     key = cv2.waitKey(1)
     if key == 27:  # Press 'ESC' to exit
         break
