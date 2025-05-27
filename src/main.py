@@ -9,7 +9,7 @@ import cv2
 import simpleLogger
 
 config = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
-config.read('obs-object-detection-cfg.ini')
+config.read('obs-object-detection.ini')
 logger = simpleLogger.SimpleLogger("obs-object-detection.log")
 
 logger.logInfo("Preparing OBS Object Detection")
@@ -18,7 +18,7 @@ logger.logInfo("Preparing OBS Object Detection")
 try:
     config.get("config.obs", "Host")
 except configparser.NoSectionError:
-    logger.logError("Configuration file not found. Please create a yolo-obs-cfg.ini file.")
+    logger.logError("Configuration file not found. Please create a obs-object-detection.ini file.")
     sys.exit(1)
 
 host = config.get("config.obs", "Host")
@@ -57,8 +57,10 @@ scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
 detection_objects = config.get("config.ai", "DetectionObjects").split(",")
 canvas_info = ws.call(requests.GetVideoSettings())
-scene_height = int(canvas_info["baseHeight"])
-scene_width = int(canvas_info["baseWidth"])
+preview_window_enabled = config.getboolean("config.preview", "Enabled")
+preview_window_fps = config.getboolean("config.preview", "ShowFPS")
+scene_height = int(canvas_info.getBaseHeight())
+scene_width = int(canvas_info.getBaseWidth())
 present_scene = config.get("config.obs", "PresentScene")
 away_scene = config.get("config.obs", "AwayScene")
 
@@ -122,7 +124,7 @@ while True:
         break
 
     # Detecting objects using YOLOv5
-    results = yolo.track(frame, stream=False, verbose=False)
+    results = yolo(source=frame, stream=False, verbose=False)
 
     height, width, _ = frame.shape
     target_in_frame = False
@@ -171,11 +173,13 @@ while True:
     frametime = end - start
     fps = 1 / frametime
 
-    cv2.putText(frame, f"{fps:.2f} FPS", (5, 30), cv2.FONT_HERSHEY_PLAIN, 2, blue, 2)
-    cv2.imshow("OBS Object Detection", frame)
-    key = cv2.waitKey(1)
-    if key == 27:  # Press 'ESC' to exit
-        break
+    if preview_window_enabled:
+        if preview_window_fps:
+            cv2.putText(frame, f"{fps:.2f} FPS", (5, 30), cv2.FONT_HERSHEY_PLAIN, 2, blue, 2)
+        cv2.imshow("OBS Object Detection", frame)
+        key = cv2.waitKey(1)
+        if key == 27:  # Press 'ESC' to exit
+            break
 
 cap.release()
 cv2.destroyAllWindows()

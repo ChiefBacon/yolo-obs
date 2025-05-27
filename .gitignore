@@ -2,7 +2,7 @@
 
 .idea
 
-yolo-obs-cfg.ini
+obs-object-detection.ini
 *.log
 
 __pycache__
