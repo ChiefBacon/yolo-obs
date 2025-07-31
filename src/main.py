@@ -2,6 +2,7 @@ import sys
 import datetime
 import time
 import configparser
+from configparser import NoOptionError
 from obswebsocket import obsws, requests
 from requests import post
 from ultralytics import YOLO
@@ -18,7 +19,7 @@ logger.logInfo("Preparing OBS Object Detection")
 try:
     config.get("config.obs", "Host")
 except configparser.NoSectionError:
-    logger.logError("Configuration file not found. Please create a obs-object-detection.ini file.")
+    logger.logError("Configuration file not found or malformed. Please create or check obs-object-detection.ini")
     sys.exit(1)
 
 host = config.get("config.obs", "Host")
@@ -55,14 +56,29 @@ privacy_screen = False
 prev_privacy_screen = False
 scissors_in_frame = False
 time_scissors_last_seen = datetime.datetime.now()
-detection_objects = config.get("config.ai", "DetectionObjects").split(",")
 canvas_info = ws.call(requests.GetVideoSettings())
-preview_window_enabled = config.getboolean("config.preview", "Enabled")
-preview_window_fps = config.getboolean("config.preview", "ShowFPS")
 scene_height = int(canvas_info.getBaseHeight())
 scene_width = int(canvas_info.getBaseWidth())
-present_scene = config.get("config.obs", "PresentScene")
-away_scene = config.get("config.obs", "AwayScene")
+
+logger.logInfo("Loading config file")
+try:
+    detection_objects = config.get("config.ai", "DetectionObjects").split(",")
+    avoid_objects = config.get("config.ai", "DisallowList").split(",")
+    preview_window_enabled = config.getboolean("config.preview", "Enabled")
+    preview_window_fps = config.getboolean("config.preview", "ShowFPS")
+    present_scene = config.get("config.obs", "PresentScene")
+    away_scene = config.get("config.obs", "AwayScene")
+    disallow_scene = config.get("config.obs", "DisallowScene")
+    presence_threshold = config.getint("config.ai", "NoPresenceTimeout")
+    smart_scale_item_id = config.getint("config.ai", "SmartScaleItemId")
+    camera_num    = config.getint("config.ai", "CameraNumber")
+    camera_width  = config.getint("config.ai", "CameraWidth")
+    camera_height = config.getint("config.ai", "CameraHeight")
+    use_gpu = config.getboolean("config.ai", "UseGPU")
+except configparser.NoOptionError as e:
+    logger.logError("Failed to load config file. Please check obs-object-detection.ini")
+    sys.exit(1)
+logger.logSuccess("Config Loaded")
 
 # Colors for drawing boxes
 blue = (255, 0, 0)
@@ -76,9 +92,9 @@ logger.logSuccess("YOLO model loaded")
 
 # Initialize webcam
 logger.logInfo("Initializing camera")
-cap = cv2.VideoCapture(int(config.get("config.ai", "CameraNumber")))
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(config.get("config.ai", "CameraWidth")))
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(config.get("config.ai", "CameraHeight")))
+cap = cv2.VideoCapture(camera_num)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_width)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_height)
 logger.logSuccess("Camera initialized")
 
 logger.logInfo("Starting main process")
@@ -92,24 +108,24 @@ while True:
     if privacy_screen != prev_privacy_screen:
         prev_privacy_screen = privacy_screen
         if privacy_screen:
-            print("PRIVACY ACTIVE")
-            ws.call(requests.SetCurrentProgramScene(sceneName="Paused"))
+            logger.logInfo(f"Disallow list object detected, switching to \"{disallow_scene}\"")
+            ws.call(requests.SetCurrentProgramScene(sceneName=disallow_scene))
         else:
-            print("NORMAL OPERATION")
+            logger.logInfo(f"Disallow list object no longer detected, switching to \"{away_scene}\"")
             ws.call(requests.SetCurrentProgramScene(sceneName=away_scene))
 
     if prev_cam_status != cam_status and not privacy_screen:
         prev_cam_status = cam_status
         if cam_status:
-            print("CAM ON")
+            logger.logInfo(f"Object detected, switching to \"{present_scene}\"")
             target_detections += 1
             if ntfy_enabled:
                 post(notification_url + notification_topic, data="Object has been detected!", headers={"Title": notification_title, "Priority": "high"})
             ws.call(requests.SetCurrentProgramScene(sceneName=present_scene))
         else:
-            print("CAM OFF")
+            logger.logInfo(f"No objects of intrest found, switching to \"{away_scene}\"")
             ws.call(requests.SetCurrentProgramScene(sceneName=away_scene))
-            ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=14, sceneItemTransform={"cropLeft": 0.0, "cropRight": 0.0, "cropTop": 0.0, "cropBottom": 0.0, "scaleX": 1.0, "scaleY": 1.0, "positionX": 0.0, "positionY": 0.0}))
+            ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=smart_scale_item_id, sceneItemTransform={"cropLeft": 0.0, "cropRight": 0.0, "cropTop": 0.0, "cropBottom": 0.0, "scaleX": 1.0, "scaleY": 1.0, "positionX": 0.0, "positionY": 0.0}))
 
     if prev_target_present != target_present:
         prev_target_present = target_present
@@ -124,7 +140,7 @@ while True:
         break
 
     # Detecting objects using YOLOv5
-    results = yolo(source=frame, stream=False, verbose=False)
+    results = yolo(source=frame, stream=False, verbose=False, device=0 if use_gpu else 'cpu')
 
     height, width, _ = frame.shape
     target_in_frame = False
@@ -148,8 +164,8 @@ while True:
                     target_in_frame = True
                     time_target_last_seen = datetime.datetime.now()
                     if config.getboolean("config.ai", "UseSmartScale"):
-                        ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=14, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
-                elif class_name == "scissors":
+                        ws.call(requests.SetSceneItemTransform(sceneName=present_scene, sceneItemId=smart_scale_item_id, sceneItemTransform={"cropLeft": x1 - 20, "cropRight": (scene_width - x2) - 20, "cropTop": y1 - 20, "cropBottom": (scene_height - y2) - 20}))
+                elif class_name in avoid_objects:
                     color = red
                     time_scissors_last_seen = datetime.datetime.now()
                     privacy_screen = True
@@ -162,7 +178,7 @@ while True:
     # Update states
     if not target_in_frame:
         target_present = False
-        if (datetime.datetime.now() - time_target_last_seen).seconds > 15:
+        if (datetime.datetime.now() - time_target_last_seen).seconds > presence_threshold:
             cam_status = False
 
     if not scissors_in_frame and privacy_screen:
